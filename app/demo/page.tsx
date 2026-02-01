@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { GlucoseChart } from "@/components/glucose-chart";
 import {
   Card,
@@ -39,7 +39,6 @@ function getMoodMeta(mood0to10: number): MoodMeta {
 }
 
 export default function DemoPage() {
-  // Form State
   const [formData, setFormData] = useState({
     glucose: 105,
     insulin: 0,
@@ -76,7 +75,7 @@ export default function DemoPage() {
         throw new Error(data.error || "Failed to fetch prediction");
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as PredictionResult;
       setResult(data);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -86,7 +85,6 @@ export default function DemoPage() {
     }
   };
 
-  // Helper for risk color
   const getRiskColor = (level: string) => {
     switch (level) {
       case "Low":
@@ -102,11 +100,17 @@ export default function DemoPage() {
 
   const moodMeta = useMemo(() => getMoodMeta(formData.mood), [formData.mood]);
 
-  // Bubble positioning: percent 0..100
+  // Bubble positioning percent 0..100
   const moodPercent = useMemo(() => {
     const m = clamp(formData.mood, 0, 10);
     return (m / 10) * 100;
   }, [formData.mood]);
+
+  // ✅ Fix for chart: convert {t,value} -> {time,value}
+  const chartData = useMemo(() => {
+    if (!result) return undefined;
+    return result.projectedTrend.map((p) => ({ time: p.t, value: p.value }));
+  }, [result]);
 
   return (
     <div className="container py-10 px-4 md:px-6">
@@ -122,7 +126,6 @@ export default function DemoPage() {
           </div>
         </div>
 
-        {/* Main Input & Results Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Input Column */}
           <Card className="lg:col-span-1 border-primary/10">
@@ -158,6 +161,7 @@ export default function DemoPage() {
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium leading-none">
                     Insulin (units)
@@ -215,7 +219,6 @@ export default function DemoPage() {
                     Mood (0-10)
                   </label>
 
-                  {/* right side emoji + label */}
                   <div className="flex items-center gap-2">
                     <div className="text-xl leading-none">{moodMeta.emoji}</div>
                     <div className="text-xs text-muted-foreground capitalize">
@@ -224,7 +227,6 @@ export default function DemoPage() {
                   </div>
                 </div>
 
-                {/* slider wrapper so bubble can position */}
                 <div className="relative pt-8">
                   {/* bubble */}
                   <div
@@ -233,7 +235,6 @@ export default function DemoPage() {
                   >
                     <div className="relative rounded-full bg-green-500/90 px-3 py-1 text-xs font-semibold text-black shadow">
                       {moodMeta.label}
-                      {/* little pointer */}
                       <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent border-t-green-500/90" />
                     </div>
                   </div>
@@ -255,7 +256,11 @@ export default function DemoPage() {
                 </div>
               </div>
 
-              <Button className="w-full" onClick={handleSubmit} disabled={loading}>
+              <Button
+                className="w-full"
+                onClick={handleSubmit}
+                disabled={loading}
+              >
                 {loading ? "Analyzing..." : "Calculate Risk"}
               </Button>
 
@@ -267,7 +272,7 @@ export default function DemoPage() {
             </CardContent>
           </Card>
 
-          {/* Results / Dashboard Column */}
+          {/* Results Column */}
           <div className="lg:col-span-2 space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="bg-card/50 border-primary/20">
@@ -320,10 +325,10 @@ export default function DemoPage() {
               </Card>
             </div>
 
-            {/* Chart */}
+            {/* ✅ Chart FIXED */}
             {result ? (
               <GlucoseChart
-                data={result.projectedTrend}
+                data={chartData}
                 title="Projected Glucose Trend"
                 description={`Projection based on ${result.riskLevel} risk factors.`}
               />
